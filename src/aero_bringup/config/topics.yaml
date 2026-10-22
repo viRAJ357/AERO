@@ -1,0 +1,24 @@
+# AERO topic configuration
+# Verify these on your machine with: ros2 topic list && ros2 topic info -v /cmd_vel
+# Update these values if your setup differs from defaults.
+
+topics:
+  scan: /scan
+  odom: /odom
+  tf: /tf
+  camera_image: /camera/image_raw
+  camera_info: /camera/camera_info
+  cmd_vel: /cmd_vel
+  cmd_vel_type: geometry_msgs/msg/Twist  # or TwistStamped - verify with ros2 topic info
+  map: /map
+
+aero_topics:
+  detections2d: /aero/detections2d
+  detections3d: /aero/detections3d
+  semantic_objects: /aero/semantic_objects
+  mode: /aero/mode
+  status: /aero/status
+  user_command: /aero/user_command
+  command_log: /aero/command_log
+  estop: /aero/estop
+  debug_image: /aero/debug_image

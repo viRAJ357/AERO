@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AERO Mission Control Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-dim: #8b949e;
+      --accent: #58a6ff;
+      --success: #238636;
+      --danger: #da3633;
+      --warning: #d29922;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Main Grid */
+    #main-container {
+      display: flex;
+      flex: 1;
+      height: 100vh;
+    }
+
+    /* Canvas Map Area */
+    #map-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: #05070a;
+    }
+
+    #top-bar {
+      height: 52px;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    .badge-idle { background: #30363d; color: #8b949e; }
+    .badge-explore { background: #1f6feb; color: #fff; }
+    .badge-stop { background: var(--danger); color: #fff; }
+
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Side Panel */
+    #sidebar {
+      width: 420px;
+      background: var(--card-bg);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .section {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    /* Controls */
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    button {
+      flex: 1;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      background: #21262d;
+      color: var(--text);
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    button:hover { background: #30363d; }
+    button.btn-primary { background: #1f6feb; border-color: #388bfd; color: #fff; }
+    button.btn-primary:hover { background: #388bfd; }
+    button.btn-estop {
+      background: var(--danger);
+      border-color: #f85149;
+      color: white;
+      font-size: 15px;
+      padding: 12px;
+      font-weight: bold;
+    }
+    button.btn-estop:hover { background: #b62324; }
+
+    /* Video Feed */
+    #camera-feed {
+      width: 100%;
+      height: 180px;
+      background: #000;
+      border-radius: 6px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+    }
+
+    /* Object List */
+    #object-list {
+      max-height: 120px;
+      overflow-y: auto;
+      font-size: 13px;
+    }
+
+    .object-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 6px;
+      background: #0d1117;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      border-left: 3px solid var(--accent);
+    }
+
+    /* Chat Area */
+    #chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 12px 16px;
+    }
+
+    #chat-box {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .chat-msg {
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 85%;
+      line-height: 1.4;
+    }
+
+    .msg-user {
+      align-self: flex-end;
+      background: #1f6feb;
+      color: white;
+    }
+
+    .msg-robot {
+      align-self: flex-start;
+      background: #21262d;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    #chat-form {
+      display: flex;
+      gap: 6px;
+    }
+
+    #chat-input {
+      flex: 1;
+      padding: 8px 12px;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+    }
+    #chat-input:focus { outline: none; border-color: var(--accent); }
+  </style>
+</head>
+<body>
+
+  <div id="main-container">
+    <!-- Map Canvas Area -->
+    <div id="map-panel">
+      <div id="top-bar">
+        <div><strong>AERO</strong> &nbsp;<span style="color:var(--text-dim);">Autonomous Explorer</span></div>
+        <div style="display:flex; gap:16px; align-items:center;">
+          <div>Pose: <span id="lbl-pose" style="font-family:monospace;">(0.00, 0.00)</span></div>
+          <div>Mode: <span id="lbl-mode" class="badge badge-idle">IDLE</span></div>
+          <div>E-Stop: <span id="lbl-estop" style="color:var(--success); font-weight:bold;">OFF</span></div>
+        </div>
+      </div>
+      <div id="canvas-container">
+        <canvas id="map-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Sidebar Controls -->
+    <div id="sidebar">
+      <!-- Camera Preview -->
+      <div class="section">
+        <div class="section-title">Perception Feed (/aero/debug_image)</div>
+        <img id="camera-feed" src="/stream" alt="Live Camera Preview" onerror="this.style.display='none'" onload="this.style.display='block'">
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="section">
+        <div class="section-title">Robot Control</div>
+        <div class="btn-group">
+          <button class="btn-primary" onclick="setMode('EXPLORE')">Explore Map</button>
+          <button onclick="setMode('STOP')">Stop Mode</button>
+        </div>
+        <button class="btn-estop" onclick="triggerEstop()">EMERGENCY STOP</button>
+      </div>
+
+      <!-- Semantic Objects -->
+      <div class="section">
+        <div class="section-title">Semantic Object Store (<span id="obj-count">0</span>)</div>
+        <div id="object-list">
+          <div style="color:var(--text-dim); text-align:center; padding:12px;">No objects confirmed yet</div>
+        </div>
+      </div>
+
+      <!-- Natural Language Commander Chat -->
+      <div id="chat-container">
+        <div class="section-title">LLM Commander (/aero/user_command)</div>
+        <div id="chat-box">
+          <div class="chat-msg msg-robot">
+            Hello! I am AERO Commander. Give me natural-language instructions like <em>"explore"</em>, <em>"find the chair"</em>, or <em>"go to the bottle"</em>.
+          </div>
+        </div>
+        <form id="chat-form" onsubmit="handleSend(event)">
+          <input type="text" id="chat-input" placeholder="Type a command (e.g. 'go to the chair')..." autocomplete="off">
+          <button type="submit" class="btn-primary" style="flex:0 0 70px;">Send</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('map-canvas');
+    const ctx = canvas.getContext('2d');
+    let mapData = null;
+    let robotPose = { x: 0, y: 0, yaw: 0 };
+    let objects = [];
+    let currentGoal = null;
+    let isEstop = false;
+
+    // Auto-resize canvas
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+      draw();
+    }
+    window.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 50);
+
+    // WebSocket connection
+    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${wsProto}//${location.host}/ws`);
+
+    ws.onmessage = (evt) => {
+      try {
+        const data = JSON.parse(evt.data);
+        if (data.pose) {
+          robotPose = data.pose;
+          document.getElementById('lbl-pose').innerText = `(${data.pose.x.toFixed(2)}, ${data.pose.y.toFixed(2)})`;
+        }
+        if (data.mode) {
+          const modeEl = document.getElementById('lbl-mode');
+          modeEl.innerText = data.mode;
+          modeEl.className = `badge badge-${data.mode.toLowerCase()}`;
+        }
+        if (data.estop !== undefined) {
+          isEstop = data.estop;
+          const el = document.getElementById('lbl-estop');
+          el.innerText = isEstop ? 'ACTIVE' : 'OFF';
+          el.style.color = isEstop ? 'var(--danger)' : 'var(--success)';
+        }
+        if (data.goal) currentGoal = data.goal;
+        if (data.objects) updateObjectsList(data.objects);
+        if (data.map) mapData = data.map;
+        if (data.chat) updateChat(data.chat);
+        draw();
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    function updateObjectsList(objs) {
+      objects = objs;
+      document.getElementById('obj-count').innerText = objs.length;
+      const list = document.getElementById('object-list');
+      if (objs.length === 0) {
+        list.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:12px;">No objects confirmed yet</div>';
+        return;
+      }
+      list.innerHTML = objs.map(o => `
+        <div class="object-row">
+          <span><strong>${o.label}</strong> (id:${o.id})</span>
+          <span>(${o.x.toFixed(2)}, ${o.y.toFixed(2)}) · ${Math.round(o.confidence * 100)}%</span>
+        </div>
+      `).join('');
+    }
+
+    let renderedMsgs = new Set();
+    function updateChat(history) {
+      const box = document.getElementById('chat-box');
+      history.forEach(m => {
+        const key = `${m.time}-${m.text}`;
+        if (!renderedMsgs.has(key)) {
+          renderedMsgs.add(key);
+          const div = document.createElement('div');
+          div.className = `chat-msg msg-${m.sender}`;
+          div.innerHTML = `<div>${m.text}</div><div style="font-size:10px; opacity:0.6; text-align:right;">${m.time || ''}</div>`;
+          box.appendChild(div);
+          box.scrollTop = box.scrollHeight;
+        }
+      });
+    }
+
+    // Canvas Rendering
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const scale = 35; // pixels per metre
+
+      // World to Screen transform centered on canvas
+      function worldToScreen(x, y) {
+        return {
+          sx: cx + x * scale,
+          sy: cy - y * scale
+        };
+      }
+
+      // Draw Occupancy Grid
+      if (mapData) {
+        const res = mapData.resolution;
+        const ox = mapData.origin_x;
+        const oy = mapData.origin_y;
+        const w = mapData.width;
+        const h = mapData.height;
+
+        for (let r = 0; r < h; r += 2) {
+          for (let c = 0; c < w; c += 2) {
+            const val = mapData.data[r * w + c];
+            if (val === -1) continue; // unknown
+
+            const wx = ox + (c + 0.5) * res;
+            const wy = oy + (r + 0.5) * res;
+            const s = worldToScreen(wx, wy);
+
+            if (val > 50) {
+              ctx.fillStyle = '#f85149'; // obstacle
+            } else {
+              ctx.fillStyle = '#21262d'; // free space
+            }
+            ctx.fillRect(s.sx, s.sy, res * scale * 2, res * scale * 2);
+          }
+        }
+      }
+
+      // Draw Goal
+      if (currentGoal) {
+        const gs = worldToScreen(currentGoal.x, currentGoal.y);
+        ctx.beginPath();
+        ctx.arc(gs.sx, gs.sy, 8, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(210, 153, 34, 0.4)';
+        ctx.fill();
+        ctx.strokeStyle = '#d29922';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Draw Objects
+      objects.forEach(o => {
+        const p = worldToScreen(o.x, o.y);
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#58a6ff';
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '11px sans-serif';
+        ctx.fillText(o.label, p.sx + 8, p.sy + 3);
+      });
+
+      // Draw Robot (Arrow)
+      const rp = worldToScreen(robotPose.x, robotPose.y);
+      ctx.save();
+      ctx.translate(rp.sx, rp.sy);
+      ctx.rotate(-robotPose.yaw); // invert Y canvas
+
+      ctx.beginPath();
+      ctx.moveTo(14, 0);
+      ctx.lineTo(-10, -8);
+      ctx.lineTo(-6, 0);
+      ctx.lineTo(-10, 8);
+      ctx.closePath();
+      ctx.fillStyle = '#238636';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Actions
+    function setMode(mode) {
+      fetch('/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode })
+      });
+    }
+
+    function triggerEstop() {
+      fetch('/estop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: true })
+      });
+    }
+
+    function handleSend(e) {
+      e.preventDefault();
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+
+      fetch('/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+    }
+  </script>
+</body>
+</html>

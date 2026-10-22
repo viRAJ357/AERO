@@ -1,0 +1,19 @@
+yolo_detector:
+  ros__parameters:
+    model_path: yolov8n.pt
+    conf: 0.40
+    imgsz: 320
+    device: auto
+    allowed_classes:
+      - chair
+      - bottle
+      - couch
+      - tv
+      - potted plant
+      - person
+      - dining table
+      - laptop
+      - book
+      - cup
+    max_rate_hz: 5.0
+    use_sim_time: true

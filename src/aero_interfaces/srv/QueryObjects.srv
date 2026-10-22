@@ -1,0 +1,5 @@
+string label
+float32 min_confidence
+---
+bool success
+SemanticObject[] objects

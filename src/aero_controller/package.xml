@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>aero_controller</name>
+  <version>1.0.0</version>
+  <description>Reactive obstacle guard controller for TurtleBot3 waffle_pi.</description>
+  <maintainer email="nikhil@aero.local">Nikhil</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_python</buildtool_depend>
+  <depend>rclpy</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <test_depend>ament_pytest</test_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>

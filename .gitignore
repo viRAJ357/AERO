@@ -1,0 +1,14 @@
+install/
+build/
+log/
+*.pt
+.env
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+*.so
+*.db
+~/.aero/

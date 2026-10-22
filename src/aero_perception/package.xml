@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>aero_perception</name>
+  <version>1.0.0</version>
+  <description>YOLO detection, object localization, and semantic mapping for AERO.</description>
+  <maintainer email="nikhil@aero.local">Nikhil</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_python</buildtool_depend>
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>vision_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>aero_interfaces</depend>
+  <depend>visualization_msgs</depend>
+  <depend>std_msgs</depend>
+  <test_depend>ament_pytest</test_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>

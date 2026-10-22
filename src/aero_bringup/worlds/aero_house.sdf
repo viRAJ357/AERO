@@ -1,0 +1,151 @@
+<?xml version="1.0" ?>
+<sdf version="1.8">
+  <world name="aero_house">
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin
+      filename="gz-sim-physics-system"
+      name="gz::sim::systems::Physics">
+    </plugin>
+    <plugin
+      filename="gz-sim-user-commands-system"
+      name="gz::sim::systems::UserCommands">
+    </plugin>
+    <plugin
+      filename="gz-sim-scene-broadcaster-system"
+      name="gz::sim::systems::SceneBroadcaster">
+    </plugin>
+    <plugin
+      filename="gz-sim-sensors-system"
+      name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <!-- Sun light -->
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <!-- Ground plane -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>0.8 0.8 0.8 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- House enclosure walls -->
+    <model name="house_walls">
+      <static>true</static>
+      <pose>0 0 1.0 0 0 0</pose>
+      <link name="walls">
+        <collision name="north">
+          <pose>0 5 0 0 0 0</pose>
+          <geometry><box><size>10 0.2 2</size></box></geometry>
+        </collision>
+        <visual name="north_vis">
+          <pose>0 5 0 0 0 0</pose>
+          <geometry><box><size>10 0.2 2</size></box></geometry>
+          <material><ambient>0.7 0.7 0.7 1</ambient></material>
+        </visual>
+
+        <collision name="south">
+          <pose>0 -5 0 0 0 0</pose>
+          <geometry><box><size>10 0.2 2</size></box></geometry>
+        </collision>
+        <visual name="south_vis">
+          <pose>0 -5 0 0 0 0</pose>
+          <geometry><box><size>10 0.2 2</size></box></geometry>
+          <material><ambient>0.7 0.7 0.7 1</ambient></material>
+        </visual>
+
+        <collision name="east">
+          <pose>5 0 0 0 0 0</pose>
+          <geometry><box><size>0.2 10 2</size></box></geometry>
+        </collision>
+        <visual name="east_vis">
+          <pose>5 0 0 0 0 0</pose>
+          <geometry><box><size>0.2 10 2</size></box></geometry>
+          <material><ambient>0.7 0.7 0.7 1</ambient></material>
+        </visual>
+
+        <collision name="west">
+          <pose>-5 0 0 0 0 0</pose>
+          <geometry><box><size>0.2 10 2</size></box></geometry>
+        </collision>
+        <visual name="west_vis">
+          <pose>-5 0 0 0 0 0</pose>
+          <geometry><box><size>0.2 10 2</size></box></geometry>
+          <material><ambient>0.7 0.7 0.7 1</ambient></material>
+        </visual>
+
+        <!-- Room partition wall -->
+        <collision name="partition">
+          <pose>0 0.5 0 0 0 0</pose>
+          <geometry><box><size>0.2 5 2</size></box></geometry>
+        </collision>
+        <visual name="partition_vis">
+          <pose>0 0.5 0 0 0 0</pose>
+          <geometry><box><size>0.2 5 2</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Fuel Semantic Models for YOLO Detection -->
+    <!-- Chair at (2.0, 1.5, 0.0) -->
+    <include>
+      <name>chair_0</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Chair</uri>
+      <pose>2.0 1.5 0 0 0 0</pose>
+    </include>
+
+    <!-- Table at (1.0, -2.5, 0.0) -->
+    <include>
+      <name>dining_table_0</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table</uri>
+      <pose>1.0 -2.5 0 0 0 0</pose>
+    </include>
+
+    <!-- Bottle on Table or near (0.5, 3.0, 0.0) -->
+    <include>
+      <name>bottle_0</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Beer</uri>
+      <pose>0.5 3.0 0 0 0 0</pose>
+    </include>
+
+    <!-- Potted Plant at (3.0, -1.0, 0.0) -->
+    <include>
+      <name>potted_plant_0</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Houseplant</uri>
+      <pose>3.0 -1.0 0 0 0 0</pose>
+    </include>
+
+  </world>
+</sdf>
