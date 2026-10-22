@@ -10,10 +10,10 @@ check() {
     local result="$2"
     if [ "$result" = "PASS" ]; then
         echo "  PASS  $label"
-        ((PASS++))
+        PASS=$((PASS + 1))
     else
         echo "  FAIL  $label  ($result)"
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
     fi
 }
 
@@ -42,7 +42,8 @@ if gz sim --version 2>/dev/null | grep -q "Harmonic\|8\."; then
 elif command -v gz &>/dev/null; then
     VER=$(gz sim --version 2>&1 | head -1)
     check "Gazebo Harmonic (gz sim)" "WARN: $VER (verify Harmonic)"
-    ((PASS++)); ((FAIL--))
+    PASS=$((PASS + 1))
+    FAIL=$((FAIL - 1))
 else
     check "Gazebo Harmonic (gz sim)" "FAIL: gz not found"
 fi
