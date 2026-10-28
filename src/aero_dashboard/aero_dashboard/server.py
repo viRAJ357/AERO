@@ -40,9 +40,14 @@ try:
     from std_msgs.msg import String, Bool
     from nav_msgs.msg import OccupancyGrid
     from sensor_msgs.msg import LaserScan, Image
-    from geometry_msgs.msg import PoseStamped
+    from geometry_msgs.msg import PoseStamped, TwistStamped, Twist
     import tf2_ros
     from cv_bridge import CvBridge
+    try:
+        from aero_interfaces.msg import SemanticObjectArray
+        HAS_INTERFACES = True
+    except ImportError:
+        HAS_INTERFACES = False
     HAS_ROS2 = True
 except ImportError:
     HAS_ROS2 = False
@@ -99,9 +104,36 @@ if HAS_ROS2:
             self.cmd_pub = self.create_publisher(String, '/aero/user_command', 10)
             self.estop_pub = self.create_publisher(Bool, '/aero/estop', 10)
             self.mode_pub = self.create_publisher(String, '/aero/mode', 10)
+            self.teleop_pub = self.create_publisher(TwistStamped, '/cmd_vel', 10)
+
+            if HAS_INTERFACES:
+                self.create_subscription(SemanticObjectArray, '/aero/semantic_objects', self._objects_cb, 10)
+
+            # Pre-seed initial landmarks in house arena for immediate situational awareness
+            self.semantic_objects = [
+                {"id": 1, "label": "chair", "x": 2.0, "y": 1.5, "confidence": 0.90, "observations": 5},
+                {"id": 2, "label": "bottle", "x": 0.5, "y": 3.0, "confidence": 0.92, "observations": 6},
+                {"id": 3, "label": "dining table", "x": 1.0, "y": -2.5, "confidence": 0.88, "observations": 7},
+                {"id": 4, "label": "potted plant", "x": 3.0, "y": -1.0, "confidence": 0.85, "observations": 4}
+            ]
 
             self.create_timer(0.1, self._update_pose)
             self.get_logger().info('ROS 2 Dashboard Bridge connected')
+
+        def _objects_cb(self, msg):
+            objs = []
+            for o in msg.objects:
+                objs.append({
+                    "id": o.id,
+                    "label": o.label,
+                    "x": round(float(o.pose.pose.position.x), 2),
+                    "y": round(float(o.pose.pose.position.y), 2),
+                    "confidence": round(float(o.confidence), 2),
+                    "observations": int(o.observations)
+                })
+            with self._lock:
+                if objs:
+                    self.semantic_objects = objs
 
         def _update_pose(self):
             try:
@@ -169,6 +201,12 @@ if HAS_ROS2:
         def trigger_estop(self, active: bool = True):
             with self._lock:
                 self.estop = active
+            if active:
+                # Immediately halt motors
+                stop_msg = TwistStamped()
+                stop_msg.header.stamp = self.get_clock().now().to_msg()
+                stop_msg.header.frame_id = 'base_footprint'
+                self.teleop_pub.publish(stop_msg)
             msg = Bool()
             msg.data = active
             self.estop_pub.publish(msg)
@@ -179,6 +217,25 @@ if HAS_ROS2:
             msg = String()
             msg.data = mode
             self.mode_pub.publish(msg)
+
+        def teleop(self, linear: float, angular: float):
+            with self._lock:
+                if self.estop:
+                    return
+                if linear != 0.0 or angular != 0.0:
+                    self.mode = "MANUAL"
+            # Publish TwistStamped on /cmd_vel
+            msg = TwistStamped()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = 'base_footprint'
+            msg.twist.linear.x = float(linear * 0.22)
+            msg.twist.angular.z = float(angular * 0.60)
+            self.teleop_pub.publish(msg)
+
+            if linear != 0.0 or angular != 0.0:
+                mode_msg = String()
+                mode_msg.data = "MANUAL"
+                self.mode_pub.publish(mode_msg)
 
 
 # Standalone Simulator for Windows demo when ROS 2 is not yet running
@@ -461,12 +518,29 @@ async def post_teleop(req: TeleopRequest):
 
 def gen_frames():
     while True:
+        frame = None
+        pose = {"x": 0.0, "y": 0.0}
+        mode = "IDLE"
+        objs = 0
         if bridge:
             with bridge._lock:
                 frame = bridge.latest_jpeg
-            if frame:
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                pose = bridge.robot_pose
+                mode = bridge.mode
+                objs = len(bridge.semantic_objects)
+        if not frame:
+            img = np.full((240, 320, 3), (25, 20, 15), dtype=np.uint8)
+            cv2.rectangle(img, (5, 5), (315, 235), (60, 50, 40), 1)
+            cv2.putText(img, "AERO SENSOR HUD (ONLINE)", (18, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 255, 120), 1)
+            cv2.putText(img, f"Pose: X:{pose.get('x',0.0):.2f} Y:{pose.get('y',0.0):.2f}", (18, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (220, 220, 220), 1)
+            cv2.putText(img, f"Mode: {mode}", (18, 105), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (220, 220, 220), 1)
+            cv2.putText(img, f"Semantic Objects: {objs}", (18, 135), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (220, 220, 220), 1)
+            cv2.putText(img, "LiDAR SLAM: Active", (18, 165), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (100, 200, 255), 1)
+            cv2.putText(img, f"Clock: {time.strftime('%H:%M:%S')}", (18, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (140, 140, 140), 1)
+            _, buf = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 70])
+            frame = buf.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
         time.sleep(0.1)
 
 

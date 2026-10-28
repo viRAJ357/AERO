@@ -299,17 +299,31 @@
     <!-- Sidebar Controls -->
     <div id="sidebar">
       <!-- Touch Driving Controls (D-Pad) -->
-      <div class="section" style="background:#13171f;">
-        <div class="section-title">📱 Mobile Remote Control (Live 3D Driving)</div>
-        <div class="dpad-container">
+      <div class="section" style="background:#13171f; padding: 12px 14px;">
+        <div class="section-title">🎮 Remote Control (Keys: W, A, S, D | Space)</div>
+        <div class="dpad-container" style="max-width:240px; margin: 8px auto;">
           <div></div>
-          <button class="dpad-btn" onclick="teleop(1.0, 0.0)" title="Forward">⬆️</button>
+          <button class="dpad-btn" id="btn-fwd" title="Forward (W)"
+                  onmousedown="startTeleop(1.0, 0.0)" onmouseup="stopTeleop()"
+                  ontouchstart="startTeleop(1.0, 0.0)" ontouchend="stopTeleop()"
+                  onclick="teleop(1.0, 0.0)">⬆️<br><small style="font-size:10px;">FWD (W)</small></button>
           <div></div>
-          <button class="dpad-btn" onclick="teleop(0.0, 1.0)" title="Turn Left">⬅️</button>
-          <button class="dpad-btn" onclick="teleop(0.0, 0.0)" style="background:#da3633; color:white; font-size:16px;" title="Stop">⏹️</button>
-          <button class="dpad-btn" onclick="teleop(0.0, -1.0)" title="Turn Right">➡️</button>
+          <button class="dpad-btn" id="btn-left" title="Turn Left (A)"
+                  onmousedown="startTeleop(0.0, 1.0)" onmouseup="stopTeleop()"
+                  ontouchstart="startTeleop(0.0, 1.0)" ontouchend="stopTeleop()"
+                  onclick="teleop(0.0, 1.0)">⬅️<br><small style="font-size:10px;">LEFT (A)</small></button>
+          <button class="dpad-btn" id="btn-stop" title="Stop (Space)"
+                  style="background:#da3633; color:white;"
+                  onclick="teleop(0.0, 0.0)">⏹️<br><small style="font-size:10px;">STOP</small></button>
+          <button class="dpad-btn" id="btn-right" title="Turn Right (D)"
+                  onmousedown="startTeleop(0.0, -1.0)" onmouseup="stopTeleop()"
+                  ontouchstart="startTeleop(0.0, -1.0)" ontouchend="stopTeleop()"
+                  onclick="teleop(0.0, -1.0)">➡️<br><small style="font-size:10px;">RIGHT (D)</small></button>
           <div></div>
-          <button class="dpad-btn" onclick="teleop(-1.0, 0.0)" title="Reverse">⬇️</button>
+          <button class="dpad-btn" id="btn-rev" title="Reverse (S)"
+                  onmousedown="startTeleop(-1.0, 0.0)" onmouseup="stopTeleop()"
+                  ontouchstart="startTeleop(-1.0, 0.0)" ontouchend="stopTeleop()"
+                  onclick="teleop(-1.0, 0.0)">⬇️<br><small style="font-size:10px;">REV (S)</small></button>
           <div></div>
         </div>
       </div>
@@ -552,34 +566,171 @@
     animate3D();
 
     // ==========================================
-    // 2D CANVAS FALLBACK
+    // 2D SLAM & LIDAR RADAR VISUALIZER
     // ==========================================
     const canvas2d = document.getElementById('map-canvas');
     const ctx2d = canvas2d.getContext('2d');
-    function draw2D() {
-      canvas2d.width = canvas2d.parentElement.clientWidth;
-      canvas2d.height = canvas2d.parentElement.clientHeight;
-      ctx2d.clearRect(0, 0, canvas2d.width, canvas2d.height);
-      const cx = canvas2d.width / 2;
-      const cy = canvas2d.height / 2;
-      const scale = Math.min(canvas2d.width, canvas2d.height) / 10;
+    let scanRanges = [];
 
-      // Draw robot arrow
-      const sx = cx + robotPose.x * scale;
-      const sy = cy - robotPose.y * scale;
-      ctx2d.save();
-      ctx2d.translate(sx, sy);
-      ctx2d.rotate(-robotPose.yaw);
+    function draw2D() {
+      const w = canvas2d.parentElement.clientWidth;
+      const h = canvas2d.parentElement.clientHeight;
+      canvas2d.width = w;
+      canvas2d.height = h;
+      ctx2d.clearRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+      const scale = Math.min(w, h) / 12; // 12 meters across view
+
+      // 1. Draw Radar Grid & Range Rings
+      ctx2d.strokeStyle = '#1e293b';
+      ctx2d.lineWidth = 1;
+      for (let r = 1; r <= 5; r++) {
+        ctx2d.beginPath();
+        ctx2d.arc(cx, cy, r * scale, 0, Math.PI * 2);
+        ctx2d.stroke();
+        ctx2d.fillStyle = '#64748b';
+        ctx2d.font = '10px monospace';
+        ctx2d.fillText(`${r}m`, cx + r * scale + 4, cy - 4);
+      }
+      // Crosshair Axes
       ctx2d.beginPath();
-      ctx2d.moveTo(14, 0); ctx2d.lineTo(-10, -8); ctx2d.lineTo(-5, 0); ctx2d.lineTo(-10, 8);
-      ctx2d.closePath();
-      ctx2d.fillStyle = isEstop ? '#da3633' : '#238636';
-      ctx2d.fill();
-      ctx2d.strokeStyle = '#fff';
-      ctx2d.lineWidth = 1.5;
+      ctx2d.moveTo(0, cy); ctx2d.lineTo(w, cy);
+      ctx2d.moveTo(cx, 0); ctx2d.lineTo(cx, h);
       ctx2d.stroke();
+
+      // 2. Draw Occupancy Grid Map if available
+      if (mapData && mapData.data && mapData.width > 0) {
+        const mw = mapData.width;
+        const mh = mapData.height;
+        const res = mapData.resolution || 0.05;
+        const ox = mapData.origin_x || 0;
+        const oy = mapData.origin_y || 0;
+        const step = Math.max(1, Math.floor(0.1 / res)); // sub-sample for speed
+
+        for (let gy = 0; gy < mh; gy += step) {
+          for (let gx = 0; gx < mw; gx += step) {
+            const val = mapData.data[gy * mw + gx];
+            if (val <= 0) continue; // skip unknown (-1) and free (0) for fast render
+            // World coordinates
+            const wx = ox + gx * res;
+            const wy = oy + gy * res;
+            // Screen coordinates
+            const sx = cx + wx * scale;
+            const sy = cy - wy * scale;
+            if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
+              ctx2d.fillStyle = val > 50 ? '#38bdf8' : '#64748b'; // Cyan for obstacles
+              ctx2d.fillRect(sx, sy, Math.max(2, res * scale * step), Math.max(2, res * scale * step));
+            }
+          }
+        }
+      }
+
+      // 3. Draw Live LiDAR Scan Points (360 deg)
+      if (scanRanges && scanRanges.length > 0) {
+        ctx2d.fillStyle = '#10b981'; // Bright Emerald Green
+        const total = scanRanges.length;
+        for (let i = 0; i < total; i++) {
+          const r = scanRanges[i];
+          if (r > 0.1 && r < 6.0) {
+            const angle = robotPose.yaw + (i * (2 * Math.PI / total));
+            const px = cx + (robotPose.x + Math.cos(angle) * r) * scale;
+            const py = cy - (robotPose.y + Math.sin(angle) * r) * scale;
+            ctx2d.beginPath();
+            ctx2d.arc(px, py, 2.5, 0, Math.PI * 2);
+            ctx2d.fill();
+          }
+        }
+      }
+
+      // 4. Draw Confirmed Semantic Objects
+      if (objects && objects.length > 0) {
+        objects.forEach(obj => {
+          const ox = cx + obj.x * scale;
+          const oy = cy - obj.y * scale;
+          ctx2d.beginPath();
+          ctx2d.arc(ox, oy, 8, 0, Math.PI * 2);
+          ctx2d.fillStyle = '#eab308'; // Gold marker
+          ctx2d.fill();
+          ctx2d.strokeStyle = '#fff';
+          ctx2d.lineWidth = 1.5;
+          ctx2d.stroke();
+          ctx2d.fillStyle = '#fef08a';
+          ctx2d.font = 'bold 11px sans-serif';
+          ctx2d.fillText(obj.label, ox + 10, oy + 4);
+        });
+      }
+
+      // 5. Draw Navigation Goal if active
+      if (currentGoal) {
+        const gx = cx + currentGoal.x * scale;
+        const gy = cy - currentGoal.y * scale;
+        ctx2d.beginPath();
+        ctx2d.arc(gx, gy, 10, 0, Math.PI * 2);
+        ctx2d.strokeStyle = '#ef4444';
+        ctx2d.lineWidth = 2;
+        ctx2d.stroke();
+        ctx2d.fillStyle = '#ef4444';
+        ctx2d.font = 'bold 11px sans-serif';
+        ctx2d.fillText('🎯 Goal', gx + 12, gy + 4);
+      }
+
+      // 6. Draw Robot Body with Heading Arrow & FOV Cone
+      const rx = cx + robotPose.x * scale;
+      const ry = cy - robotPose.y * scale;
+
+      ctx2d.save();
+      ctx2d.translate(rx, ry);
+      ctx2d.rotate(-robotPose.yaw);
+
+      // Translucent Camera FOV Cone
+      ctx2d.beginPath();
+      ctx2d.moveTo(0, 0);
+      ctx2d.arc(0, 0, 45, -Math.PI / 6, Math.PI / 6);
+      ctx2d.closePath();
+      ctx2d.fillStyle = 'rgba(56, 189, 248, 0.15)';
+      ctx2d.fill();
+
+      // Robot Chassis
+      ctx2d.beginPath();
+      ctx2d.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx2d.fillStyle = isEstop ? '#da3633' : '#1f6feb';
+      ctx2d.fill();
+      ctx2d.strokeStyle = '#ffffff';
+      ctx2d.lineWidth = 2;
+      ctx2d.stroke();
+
+      // Heading Arrow
+      ctx2d.beginPath();
+      ctx2d.moveTo(14, 0); ctx2d.lineTo(-4, -7); ctx2d.lineTo(0, 0); ctx2d.lineTo(-4, 7);
+      ctx2d.closePath();
+      ctx2d.fillStyle = '#ffffff';
+      ctx2d.fill();
       ctx2d.restore();
+
+      // Click to Drive hint
+      ctx2d.fillStyle = '#94a3b8';
+      ctx2d.font = '11px sans-serif';
+      ctx2d.fillText('👆 Click anywhere on 2D map to send robot there', 15, h - 15);
     }
+
+    // Click on 2D Canvas to Navigate
+    canvas2d.addEventListener('click', (e) => {
+      const rect = canvas2d.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      const w = canvas2d.width;
+      const h = canvas2d.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const scale = Math.min(w, h) / 12;
+
+      const worldX = (clickX - cx) / scale;
+      const worldY = -(clickY - cy) / scale;
+      const cmd = `go to ${worldX.toFixed(2)}, ${worldY.toFixed(2)}`;
+      quickSend(cmd);
+    });
 
     // ==========================================
     // WEBSOCKET TELEMETRY
@@ -606,6 +757,9 @@
           el.style.color = isEstop ? 'var(--danger)' : 'var(--success)';
         }
         if (data.objects) updateObjectsList(data.objects);
+        if (data.map) mapData = data.map;
+        if (data.scan) scanRanges = data.scan;
+        if (data.goal) currentGoal = data.goal;
         if (data.chat) updateChat(data.chat);
         if (activeView === '2d') draw2D();
       } catch (e) {
@@ -643,15 +797,68 @@
     }
 
     // ==========================================
-    // CONTROLS & COMMANDS
+    // CONTROLS & COMMANDS (HOLD TO DRIVE + KEYS)
     // ==========================================
+    let teleopTimer = null;
+    let currentLinear = 0.0;
+    let currentAngular = 0.0;
+
     function teleop(linear, angular) {
+      currentLinear = linear;
+      currentAngular = angular;
       fetch('/teleop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ linear, angular })
       });
+      // Local immediate prediction for instant 3D responsiveness
+      if (linear !== 0 || angular !== 0) {
+        robotPose.yaw += angular * 0.15;
+        robotPose.x += Math.cos(robotPose.yaw) * linear * 0.15;
+        robotPose.y += Math.sin(robotPose.yaw) * linear * 0.15;
+      }
     }
+
+    function startTeleop(linear, angular) {
+      stopTeleop();
+      teleop(linear, angular);
+      teleopTimer = setInterval(() => {
+        teleop(linear, angular);
+      }, 100);
+    }
+
+    function stopTeleop() {
+      if (teleopTimer) {
+        clearInterval(teleopTimer);
+        teleopTimer = null;
+      }
+      teleop(0.0, 0.0);
+    }
+
+    // Keyboard Shortcuts (W, A, S, D, Arrow keys, Space)
+    const activeKeys = new Set();
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      const key = e.key.toLowerCase();
+      if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) {
+        e.preventDefault();
+      }
+      if (activeKeys.has(key)) return;
+      activeKeys.add(key);
+
+      if (key === 'w' || key === 'arrowup') startTeleop(1.0, 0.0);
+      else if (key === 's' || key === 'arrowdown') startTeleop(-1.0, 0.0);
+      else if (key === 'a' || key === 'arrowleft') startTeleop(0.0, 1.0);
+      else if (key === 'd' || key === 'arrowright') startTeleop(0.0, -1.0);
+      else if (key === ' ') teleop(0.0, 0.0);
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      const key = e.key.toLowerCase();
+      activeKeys.delete(key);
+      if (activeKeys.size === 0) stopTeleop();
+    });
 
     function setMode(mode) {
       fetch('/mode', {
