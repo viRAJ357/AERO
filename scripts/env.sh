@@ -9,5 +9,6 @@ source ~/aero_venv/bin/activate
 export TURTLEBOT3_MODEL=waffle_pi
 export ROS_DOMAIN_ID=30
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+export PYTHONPATH="/home/nikhil/aero_venv/lib/python3.12/site-packages:${PYTHONPATH:-}"
 
 echo "[env.sh] ROS_DISTRO=$ROS_DISTRO  TURTLEBOT3_MODEL=$TURTLEBOT3_MODEL  VIRTUAL_ENV=$VIRTUAL_ENV"
